@@ -1,0 +1,31 @@
+package com.kaplan.gym_service.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+@Entity
+@Table(name = "members")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class Member {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String name;
+
+    private String email;
+
+    @Enumerated(EnumType.STRING)
+    private MembershipType type;
+
+    public enum MembershipType {
+        STANDARD,
+        PREMIUM,
+        STUDENT
+    }
+}
