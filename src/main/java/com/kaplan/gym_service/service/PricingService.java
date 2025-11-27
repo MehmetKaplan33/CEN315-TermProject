@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 public class PricingService {
 
     public double calculatePrice(Member standardMember, ClassSession session, double basePrice) {
-        return 0;
+        // İleride buraya indirim ve zam kuralları gelecek.
+        // Şimdilik sadece taban fiyatı döndürüyoruz, çünkü Standart üye indirimsiz öder.
+        return basePrice;
     }
 }
