@@ -18,6 +18,7 @@ public class ClassSession {
     private String instructor;
 
     private int capacity;
+    private int occupiedSlots = 0; // O an kaç kişinin kayıtlı olduğu
 
     private LocalDateTime dateTime;
 }
