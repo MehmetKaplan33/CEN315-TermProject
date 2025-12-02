@@ -8,6 +8,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,17 +25,28 @@ class ClassSessionServiceTest {
 
     @Test
     void shouldCreateClass() {
+        // GIVEN
         ClassSession session = new ClassSession();
+        session.setName("Yoga");
+
         when(classSessionRepository.save(any(ClassSession.class))).thenReturn(session);
 
-        classSessionService.createClassSession(session);
+        // WHEN
+        ClassSession result = classSessionService.createClassSession(session);
+
+        // THEN
+        assertNotNull(result);
+        assertEquals("Yoga", result.getName());
 
         verify(classSessionRepository).save(session);
     }
 
     @Test
     void shouldGetAllClasses() {
+        // WHEN
         classSessionService.getAllClassSessions();
+
+        // THEN
         verify(classSessionRepository).findAll();
     }
 }

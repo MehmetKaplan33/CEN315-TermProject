@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -13,25 +13,15 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<name>gym-service</name>
 	<description>Appointment and Dynamic Pricing Service</description>
-	<url/>
-	<licenses>
-		<license/>
-	</licenses>
-	<developers>
-		<developer/>
-	</developers>
-	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
-	</scm>
+
 	<properties>
 		<java.version>21</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
+
 	<dependencies>
+		<!-- Spring Boot Core -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -45,6 +35,7 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- Database & Tools -->
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
@@ -55,9 +46,17 @@
 			<artifactId>lombok</artifactId>
 			<optional>true</optional>
 		</dependency>
+
+		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.junit.platform</groupId>
+			<artifactId>junit-platform-launcher</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -88,6 +87,8 @@
 					</excludes>
 				</configuration>
 			</plugin>
+
+			<!-- 1. JaCoCo (Coverage) Plugin -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -107,15 +108,19 @@
 						<configuration>
 							<excludes>
 								<exclude>com/kaplan/gym_service/GymServiceApplication.class</exclude>
+								<exclude>com/kaplan/gym_service/model/**</exclude>
+								<exclude>com/kaplan/gym_service/dto/**</exclude>
 							</excludes>
 						</configuration>
 					</execution>
 				</executions>
 			</plugin>
+
+			<!-- 2. PITest (Mutation) Plugin -->
 			<plugin>
 				<groupId>org.pitest</groupId>
 				<artifactId>pitest-maven</artifactId>
-				<version>1.15.3</version>
+				<version>1.16.1</version>
 				<dependencies>
 					<dependency>
 						<groupId>org.pitest</groupId>
@@ -130,6 +135,10 @@
 					<targetTests>
 						<param>com.kaplan.gym_service.*</param>
 					</targetTests>
+					<outputFormats>
+						<outputFormat>HTML</outputFormat>
+					</outputFormats>
+					<withHistory>true</withHistory>
 				</configuration>
 			</plugin>
 		</plugins>

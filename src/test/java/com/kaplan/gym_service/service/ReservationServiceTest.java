@@ -37,7 +37,7 @@ class ReservationServiceTest {
     // SENARYO 1: Normal Durum (Rezervasyon Başarılı)
     @Test
     void shouldCreateReservation_WhenSeatsAreAvailable() {
-        // 1. GIVEN
+        // GIVEN
         CreateReservationRequest request = new CreateReservationRequest();
         request.setMemberId(1L);
         request.setClassId(1L);
@@ -52,25 +52,32 @@ class ReservationServiceTest {
 
         when(memberRepository.findById(1L)).thenReturn(Optional.of(member));
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
-
         when(pricingService.calculatePrice(any(), any(), anyDouble())).thenReturn(100.0);
 
         when(reservationRepository.save(any(Reservation.class))).thenAnswer(i -> i.getArguments()[0]);
 
-        // 2. WHEN
+        // WHEN
         Reservation result = reservationService.createReservation(request);
 
-        // 3. THEN
+        // THEN
         assertNotNull(result);
         assertEquals(100.0, result.getPrice());
 
+        assertEquals(member, result.getMember());
+        assertEquals(session, result.getClassSession());
+
+        assertEquals(Reservation.ReservationStatus.CONFIRMED, result.getStatus());
+        assertNotNull(result.getReservationTime());
+        assertEquals(6, session.getOccupiedSlots());
+
         verify(reservationRepository, times(1)).save(any(Reservation.class));
+        verify(classSessionRepository, times(1)).save(session);
     }
 
     // SENARYO 2: Hata Durumu (Sınıf Dolu)
     @Test
     void shouldThrowException_WhenClassIsFull() {
-        // 1. GIVEN
+        // GIVEN
         CreateReservationRequest request = new CreateReservationRequest();
         request.setMemberId(1L);
         request.setClassId(1L);
@@ -82,25 +89,48 @@ class ReservationServiceTest {
         when(memberRepository.findById(1L)).thenReturn(Optional.of(new Member()));
         when(classSessionRepository.findById(1L)).thenReturn(Optional.of(session));
 
-        // 2. WHEN & THEN
+        // WHEN & THEN
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
             reservationService.createReservation(request);
         });
 
         assertEquals("Class is full! Reservation rejected.", exception.getMessage());
-
         verify(reservationRepository, never()).save(any());
     }
 
-    // SENARYO 3: Sınıf zaten boşsa (Occupied=0), iptal edince sayı eksiye düşmemeli
+    // SENARYO 3: İptal İşlemi (Normal Durum)
     @Test
-    void shouldNotDecreaseOccupiedSlots_WhenAlreadyZero() {
-        // 1. GIVEN
+    void shouldCancelReservation_AndDecreaseOccupiedSlots() {
+        // GIVEN
         long reservationId = 1L;
 
         ClassSession session = new ClassSession();
         session.setId(1L);
         session.setCapacity(10);
+        session.setOccupiedSlots(5);
+
+        Reservation reservation = new Reservation();
+        reservation.setId(reservationId);
+        reservation.setClassSession(session);
+
+        when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(reservation));
+
+        // WHEN
+        reservationService.cancelReservation(reservationId);
+
+        // THEN
+        assertEquals(4, session.getOccupiedSlots());
+
+        verify(classSessionRepository).save(session);
+        verify(reservationRepository).deleteById(reservationId);
+    }
+
+    // SENARYO 4: Sınıf zaten boşsa eksiye düşmemeli
+    @Test
+    void shouldNotDecreaseOccupiedSlots_WhenAlreadyZero() {
+        // GIVEN
+        long reservationId = 1L;
+        ClassSession session = new ClassSession();
         session.setOccupiedSlots(0);
 
         Reservation reservation = new Reservation();
@@ -109,12 +139,12 @@ class ReservationServiceTest {
 
         when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(reservation));
 
-        // 2. WHEN
+        // WHEN
         reservationService.cancelReservation(reservationId);
 
-        // 3. THEN
+        // THEN
         assertEquals(0, session.getOccupiedSlots());
-
+        verify(classSessionRepository, never()).save(any());
         verify(reservationRepository).deleteById(reservationId);
     }
 }

@@ -48,4 +48,23 @@ class PricingServiceTest {
         // 3. THEN
         assertEquals(150.0, price);
     }
+
+    @Test
+    void shouldNotIncreasePrice_WhenOccupancyIsExactly80Percent() {
+        // GIVEN
+        Member member = new Member();
+        member.setType(Member.MembershipType.STANDARD);
+
+        ClassSession session = new ClassSession();
+        session.setCapacity(10);
+        session.setOccupiedSlots(8); // Tam %80 (0.8)
+
+        double basePrice = 100.0;
+
+        // WHEN
+        double price = pricingService.calculatePrice(member, session, basePrice);
+
+        // THEN
+        assertEquals(100.0, price);
+    }
 }
