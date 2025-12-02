@@ -91,4 +91,30 @@ class ReservationServiceTest {
 
         verify(reservationRepository, never()).save(any());
     }
+
+    // SENARYO 3: Sınıf zaten boşsa (Occupied=0), iptal edince sayı eksiye düşmemeli
+    @Test
+    void shouldNotDecreaseOccupiedSlots_WhenAlreadyZero() {
+        // 1. GIVEN
+        long reservationId = 1L;
+
+        ClassSession session = new ClassSession();
+        session.setId(1L);
+        session.setCapacity(10);
+        session.setOccupiedSlots(0);
+
+        Reservation reservation = new Reservation();
+        reservation.setId(reservationId);
+        reservation.setClassSession(session);
+
+        when(reservationRepository.findById(reservationId)).thenReturn(Optional.of(reservation));
+
+        // 2. WHEN
+        reservationService.cancelReservation(reservationId);
+
+        // 3. THEN
+        assertEquals(0, session.getOccupiedSlots());
+
+        verify(reservationRepository).deleteById(reservationId);
+    }
 }
