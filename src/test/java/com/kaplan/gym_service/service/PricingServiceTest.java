@@ -46,7 +46,7 @@ class PricingServiceTest {
         double price = pricingService.calculatePrice(member, session, basePrice);
 
         // 3. THEN
-        assertEquals(150.0, price);
+        assertEquals(150.0, price); // %50 Zam
     }
 
     @Test
@@ -66,5 +66,43 @@ class PricingServiceTest {
 
         // THEN
         assertEquals(100.0, price);
+    }
+
+    @Test
+    void shouldApplyDiscount_WhenMemberIsPremium() {
+        // GIVEN
+        Member member = new Member();
+        member.setType(Member.MembershipType.PREMIUM);
+
+        ClassSession session = new ClassSession();
+        session.setCapacity(10);
+        session.setOccupiedSlots(0);
+
+        double basePrice = 100.0;
+
+        // WHEN
+        double price = pricingService.calculatePrice(member, session, basePrice);
+
+        // THEN:
+        assertEquals(90.0, price); // %10 İndirim
+    }
+
+    @Test
+    void shouldApplyDiscount_WhenMemberIsStudent() {
+        // GIVEN
+        Member member = new Member();
+        member.setType(Member.MembershipType.STUDENT);
+
+        ClassSession session = new ClassSession();
+        session.setCapacity(10);
+        session.setOccupiedSlots(0);
+
+        double basePrice = 100.0;
+
+        // WHEN
+        double price = pricingService.calculatePrice(member, session, basePrice);
+
+        // THEN
+        assertEquals(50.0, price); // %50 İndirim
     }
 }

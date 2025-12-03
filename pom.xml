@@ -47,6 +47,14 @@
 			<optional>true</optional>
 		</dependency>
 
+		<!-- Property-Based Testing (jqwik) -->
+		<dependency>
+			<groupId>net.jqwik</groupId>
+			<artifactId>jqwik</artifactId>
+			<version>1.9.0</version>
+			<scope>test</scope>
+		</dependency>
+
 		<!-- Testing -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

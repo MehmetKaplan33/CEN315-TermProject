@@ -30,6 +30,21 @@ public class Reservation {
 
     public enum ReservationStatus {
         CONFIRMED,
-        CANCELLED
+        CANCELLED,
+        PENDING
+    }
+
+    public void confirm() {
+        if (this.status == ReservationStatus.CANCELLED) {
+            throw new IllegalStateException("Cannot confirm a cancelled reservation.");
+        }
+        this.status = ReservationStatus.CONFIRMED;
+    }
+
+    public void cancel() {
+        if (this.status == ReservationStatus.CANCELLED) {
+            throw new IllegalStateException("Reservation is already cancelled.");
+        }
+        this.status = ReservationStatus.CANCELLED;
     }
 }
