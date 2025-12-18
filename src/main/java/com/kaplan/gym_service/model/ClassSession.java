@@ -21,4 +21,17 @@ public class ClassSession {
     private int occupiedSlots = 0;
 
     private LocalDateTime dateTime;
+
+    public void validateState() {
+        if (this.capacity < 0) {
+            throw new IllegalStateException("Invariant Violation: Capacity cannot be negative.");
+        }
+        if (this.occupiedSlots < 0) {
+            throw new IllegalStateException("Invariant Violation: Occupied slots cannot be negative.");
+        }
+        if (this.occupiedSlots > this.capacity) {
+            throw new IllegalStateException("Invariant Violation: Occupied slots (" + occupiedSlots +
+                    ") cannot exceed capacity (" + capacity + ").");
+        }
+    }
 }
