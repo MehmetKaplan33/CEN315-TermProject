@@ -1,6 +1,5 @@
-name: Java CI with Maven
+name: Java CI with Maven (Full Suite)
 
-# 1.Triggers
 on:
   push:
     branches: [ "main", "master" ]
@@ -9,14 +8,13 @@ on:
 
 jobs:
   build:
-    # 2.Environment
     runs-on: ubuntu-latest
 
     steps:
-      # A. Checkout code
+      # 1. KODU ÇEK
       - uses: actions/checkout@v4
 
-      # B. JDK setup
+      # 2. JAVA 21 KUR
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -24,14 +22,60 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # C. Build and Test
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml
+      # 3. DERLEME, UNIT TEST & ENTEGRASYON (JUnit + jqwik + ACTS)
+      - name: Build and Test with Maven
+        run: mvn -B verify --file pom.xml
 
-      # D. Artifact Upload
-      - name: Publish Test Report
+      # 4. JACOCO RAPORUNU YÜKLE
+      - name: Upload JaCoCo Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
-          path: target/surefire-reports
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      # 5. PITEST (MUTASYON) ÇALIŞTIR
+      - name: Run PITest Mutation Analysis
+        run: mvn org.pitest:pitest-maven:mutationCoverage
+
+      # 6. PITEST RAPORUNU YÜKLE
+      - name: Upload PITest Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pitest-report
+          path: target/pit-reports/
+
+      # 7. UYGULAMAYI ARKA PLANDA BAŞLAT
+      - name: Start Spring Boot App
+        run: |
+          nohup java -jar target/*.jar > app.log 2>&1 &
+          echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
+          sleep 20
+
+      # 8. POSTMAN TESTLERİ (NEWMAN)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Newman
+        run: npm install -g newman
+
+      - name: Run Postman Collection
+        run: newman run tests/postman/collection.json
+
+      # 9. PERFORMANS TESTLERİ (k6)
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 Load Test
+        run: k6 run tests/k6/load_test.js
+
+      # 10. UYGULAMA LOGLARINI YÜKLE (Hata Ayıklama İçin)
+      - name: Upload Application Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-log
+          path: app.log
