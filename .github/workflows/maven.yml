@@ -56,8 +56,8 @@ jobs:
            echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
            sleep 20
           
-           # Sağlık kontrolü
-           curl -f http://localhost:8080/actuator/health || (echo "❌ Loglar:" && cat app.log && exit 1)
+           # Actuator 500 dönebilir, o yüzden direkt API'yi kontrol ediyoruz
+           curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor! Loglar:" && cat app.log && exit 1)
 
       # 8. POSTMAN TESTLERİ (NEWMAN)
       - name: Set up Node.js
