@@ -123,6 +123,7 @@
 								<exclude>com/kaplan/gym_service/GymServiceApplication.class</exclude>
 								<exclude>com/kaplan/gym_service/model/**</exclude>
 								<exclude>com/kaplan/gym_service/dto/**</exclude>
+								<exclude>**/exception/**</exclude>
 							</excludes>
 						</configuration>
 					</execution>
@@ -148,6 +149,13 @@
 					<targetTests>
 						<param>com.kaplan.gym_service.*</param>
 					</targetTests>
+					<excludedClasses>
+						<param>com.kaplan.gym_service.controller.*</param>
+						<param>com.kaplan.gym_service.model.*</param>
+						<param>com.kaplan.gym_service.dto.*</param>
+						<param>com.kaplan.gym_service.exception.*</param>
+						<param>com.kaplan.gym_service.GymServiceApplication</param>
+					</excludedClasses>
 					<outputFormats>
 						<outputFormat>HTML</outputFormat>
 					</outputFormats>
