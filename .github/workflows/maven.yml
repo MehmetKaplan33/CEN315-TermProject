@@ -49,18 +49,15 @@ jobs:
       # 7. UYGULAMAYI ARKA PLANDA BAŞLAT
       - name: Start Spring Boot App
         run: |
-          # Postgres yerine H2 kullanması için ayarları eziyoruz
-          nohup java \
-          -Dspring.datasource.url=jdbc:h2:mem:gymdb \
-          -Dspring.datasource.driverClassName=org.h2.Driver \
-          -Dspring.datasource.username=sa \
-          -Dspring.datasource.password=password \
-          -Dspring.jpa.database-platform=org.hibernate.dialect.H2Dialect \
-          -Dspring.jpa.hibernate.ddl-auto=create-drop \
-          -jar target/*.jar > app.log 2>&1 &
+          # Varsayılan application.properties zaten H2 ayarlı
+           # H2 driver artık JAR içinde olduğu için direkt çalışacak
+           nohup java -jar target/*.jar > app.log 2>&1 &
           
-          echo "Uygulama H2 veritabanı ile başlatılıyor, 20 saniye bekleniyor..."
-          sleep 20
+           echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
+           sleep 20
+          
+           # Sağlık kontrolü
+           curl -f http://localhost:8080/actuator/health || (echo "❌ Loglar:" && cat app.log && exit 1)
 
       # 8. POSTMAN TESTLERİ (NEWMAN)
       - name: Set up Node.js
