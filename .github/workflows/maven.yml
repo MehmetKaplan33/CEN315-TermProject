@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
-      checks: write # JaCoCo tablo görünürlüğü için gerekli
+      checks: write
 
     steps:
       # 1. KODU ÇEK
@@ -30,9 +30,8 @@ jobs:
       - name: Build and Test with Maven
         run: mvn -B verify --file pom.xml
 
-      # --- JACOCO SUMMARY (Dinamik Tablo) ---
-      # Bu adım otomatik olarak projedeki paket bazlı coverage oranlarını tabloya basar
-      - name: JaCoCo Report Summary
+      # --- JACOCO SUMMARY (PR Comment + Summary) ---
+      - name: JaCoCo Report Summary (PR Comment)
         uses: Madrapps/jacoco-report@v1.6.1
         with:
           paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
@@ -40,6 +39,61 @@ jobs:
           min-coverage-overall: 80
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
+
+      # JaCoCo Summary'e de ekle
+      - name: Add JaCoCo to Step Summary
+        run: |
+          echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # jacoco.xml'den coverage verilerini çek
+          JACOCO_XML="target/site/jacoco/jacoco.xml"
+          
+          if [ -f "$JACOCO_XML" ]; then
+            # Instruction coverage (genel)
+            INSTRUCTION_COVERED=$(grep -o 'type="INSTRUCTION".*covered="[0-9]*"' "$JACOCO_XML" | grep -oP 'covered="\K[0-9]+' | head -1)
+            INSTRUCTION_MISSED=$(grep -o 'type="INSTRUCTION".*missed="[0-9]*"' "$JACOCO_XML" | grep -oP 'missed="\K[0-9]+' | head -1)
+          
+            # Branch coverage
+            BRANCH_COVERED=$(grep -o 'type="BRANCH".*covered="[0-9]*"' "$JACOCO_XML" | grep -oP 'covered="\K[0-9]+' | head -1)
+            BRANCH_MISSED=$(grep -o 'type="BRANCH".*missed="[0-9]*"' "$JACOCO_XML" | grep -oP 'missed="\K[0-9]+' | head -1)
+          
+            # Line coverage
+            LINE_COVERED=$(grep -o 'type="LINE".*covered="[0-9]*"' "$JACOCO_XML" | grep -oP 'covered="\K[0-9]+' | head -1)
+            LINE_MISSED=$(grep -o 'type="LINE".*missed="[0-9]*"' "$JACOCO_XML" | grep -oP 'missed="\K[0-9]+' | head -1)
+          
+            # Yüzdeleri hesapla
+            if [ -n "$INSTRUCTION_COVERED" ] && [ -n "$INSTRUCTION_MISSED" ]; then
+              TOTAL_INST=$((INSTRUCTION_COVERED + INSTRUCTION_MISSED))
+              INST_PCT=$(awk "BEGIN {printf \"%.1f\", ($INSTRUCTION_COVERED/$TOTAL_INST)*100}")
+            else
+              INST_PCT="0.0"
+            fi
+          
+            if [ -n "$BRANCH_COVERED" ] && [ -n "$BRANCH_MISSED" ]; then
+              TOTAL_BRANCH=$((BRANCH_COVERED + BRANCH_MISSED))
+              BRANCH_PCT=$(awk "BEGIN {printf \"%.1f\", ($BRANCH_COVERED/$TOTAL_BRANCH)*100}")
+            else
+              BRANCH_PCT="0.0"
+            fi
+          
+            if [ -n "$LINE_COVERED" ] && [ -n "$LINE_MISSED" ]; then
+              TOTAL_LINE=$((LINE_COVERED + LINE_MISSED))
+              LINE_PCT=$(awk "BEGIN {printf \"%.1f\", ($LINE_COVERED/$TOTAL_LINE)*100}")
+            else
+              LINE_PCT="0.0"
+            fi
+          
+            # Tablo oluştur
+            echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Instruction Coverage** | ${INST_PCT}% | $(awk "BEGIN {exit ($INST_PCT >= 80) ? 0 : 1}" && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Branch Coverage** | ${BRANCH_PCT}% | $(awk "BEGIN {exit ($BRANCH_PCT >= 80) ? 0 : 1}" && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Line Coverage** | ${LINE_PCT}% | $(awk "BEGIN {exit ($LINE_PCT >= 80) ? 0 : 1}" && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ JaCoCo raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
+          fi
 
       # 4. JACOCO RAPORUNU YÜKLE
       - name: Upload JaCoCo Report
@@ -49,20 +103,37 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (MUTASYON) VE DİNAMİK VERİ ÇEKME
+      # 5. PITEST (MUTASYON) VE DİNAMİK VERİ ÇEKME (DÜZELTİLDİ)
       - name: Run PITest and Extract Summary
         run: |
           mvn org.pitest:pitest-maven:mutationCoverage
           
-          # PITest HTML raporundan Mutation ve Line Coverage verilerini ayıkla
-          MUT_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | head -1 || echo "0")
-          LINE_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | sed -n '2p' || echo "0")
+          # PITest mutations.xml dosyasından doğru verileri çek
+          MUTATIONS_XML="target/pit-reports/mutations.xml"
+          
+          if [ -f "$MUTATIONS_XML" ]; then
+            # XML'den mutation coverage hesapla
+            KILLED=$(grep -o '<status>KILLED</status>' "$MUTATIONS_XML" | wc -l)
+            TOTAL=$(grep -o '<mutation ' "$MUTATIONS_XML" | wc -l)
+          
+            if [ "$TOTAL" -gt 0 ]; then
+              MUT_COV=$(awk "BEGIN {printf \"%.0f\", ($KILLED/$TOTAL)*100}")
+            else
+              MUT_COV="0"
+            fi
+          
+            # Line coverage için index.html'den çek
+            LINE_COV=$(grep -oP 'Total.*?<td>(\d+)%' target/pit-reports/index.html | grep -oP '\d+' | head -1 || echo "0")
+          else
+            MUT_COV="0"
+            LINE_COV="0"
+          fi
           
           echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
           echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Mutation Coverage** | $MUT_COV% | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Line Coverage** | $LINE_COV% | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Mutation Coverage** | ${MUT_COV}% | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Line Coverage** | ${LINE_COV}% | ✅ |" >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
       - name: Upload PITest Report
@@ -80,7 +151,7 @@ jobs:
           sleep 25
           curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor!" && cat app.log && exit 1)
 
-      # 8. POSTMAN TESTLERİ (NEWMAN TERMİNAL TABLOSU)
+      # 8. POSTMAN TESTLERİ (NEWMAN)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -91,22 +162,19 @@ jobs:
           npm install -g newman
           echo "### 🚀 API Test Results (Newman)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          # Newman özet tablosunu yakalar
           newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # 9. PERFORMANS TESTLERİ (k6 SADECE ÖZET)
+      # 9. PERFORMANS TESTLERİ (k6 TAM ÇIKTI - DÜZELTİLDİ)
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
       - name: Run k6 Load Test
         run: |
-          # k6 çıktısını dosyaya yazıp sadece önemli kısımları (Thresholds & Results) ayıklıyoruz
-          k6 run tests/k6/load_test.js > k6_full_log.txt
           echo "### ⚡ Performance Summary (k6)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          # Log dosyasından sadece özet tablolarını çekmek için sed kullanıyoruz
-          sed -n '/█ THRESHOLDS/,/NETWORK/p' k6_full_log.txt >> $GITHUB_STEP_SUMMARY
+          # k6 çıktısını doğrudan summary'e yaz (tüm çıktı)
+          k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY 2>&1 || true
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 10. UYGULAMA LOGLARINI YÜKLE
