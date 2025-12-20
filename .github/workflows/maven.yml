@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       # 1. KODU ÇEK
@@ -25,6 +28,15 @@ jobs:
       # 3. DERLEME, UNIT TEST & ENTEGRASYON (JUnit + jqwik + ACTS)
       - name: Build and Test with Maven
         run: mvn -B verify --file pom.xml
+
+        # --- GÜNCELLENDİ: JACOCO ÖZET RAPORU ---
+      - name: JaCoCo Report Summary
+        uses: Madrapps/jacoco-report@v1.6.1
+        with:
+          paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          min-coverage-overall: 80
+          title: "📊 Code Coverage Summary"
 
       # 4. JACOCO RAPORUNU YÜKLE
       - name: Upload JaCoCo Report
@@ -50,14 +62,14 @@ jobs:
       - name: Start Spring Boot App
         run: |
           # Varsayılan application.properties zaten H2 ayarlı
-           # H2 driver artık JAR içinde olduğu için direkt çalışacak
-           nohup java -jar target/*.jar > app.log 2>&1 &
+          # H2 driver artık JAR içinde olduğu için direkt çalışacak
+          nohup java -jar target/*.jar > app.log 2>&1 &
           
-           echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
-           sleep 20
+          echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
+          sleep 20
           
-           # Actuator 500 dönebilir, o yüzden direkt API'yi kontrol ediyoruz
-           curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor! Loglar:" && cat app.log && exit 1)
+          # Actuator 500 dönebilir, o yüzden direkt API'yi kontrol ediyoruz
+          curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor! Loglar:" && cat app.log && exit 1)
 
       # 8. POSTMAN TESTLERİ (NEWMAN)
       - name: Set up Node.js
@@ -65,18 +77,26 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Newman
-        run: npm install -g newman
-
+      # --- GÜNCELLENDİ: NEWMAN TABLO RAPORU ---
       - name: Run Postman Collection
-        run: newman run tests/postman/collection.json
+        run: |
+          npm install -g newman newman-reporter-markdown
+          newman run tests/postman/collection.json -r cli,markdown --reporter-markdown-export postman-report.md
+          echo "## 🚀 API Test Results (Postman)" >> $GITHUB_STEP_SUMMARY
+          cat postman-report.md >> $GITHUB_STEP_SUMMARY
 
       # 9. PERFORMANS TESTLERİ (k6)
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
+      # --- GÜNCELLENDİ: k6 METRİK ÖZETİ ---
       - name: Run k6 Load Test
-        run: k6 run tests/k6/load_test.js
+        run: |
+          k6 run tests/k6/load_test.js > k6-output.txt
+          echo "## ⚡ Performance Test Metrics (k6)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -E "http_req_duration|http_reqs|iterations|vus" k6-output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 10. UYGULAMA LOGLARINI YÜKLE (Hata Ayıklama İçin)
       - name: Upload Application Logs
