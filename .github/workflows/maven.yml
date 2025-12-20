@@ -40,7 +40,7 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary'e de ekle (Fixed: Her satırı ayrı parse et)
+      # JaCoCo Summary'e de ekle (Basit sed ile)
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
@@ -49,24 +49,27 @@ jobs:
           JACOCO_HTML="target/site/jacoco/index.html"
           
           if [ -f "$JACOCO_HTML" ]; then
-            # Instruction coverage: İlk bar satırı
-            INST_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | head -1 | grep -oP '\d+ of \d+')
+            # Tüm bar satırlarını dosyaya yaz
+            grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' > /tmp/bars.txt
           
-            if [ -n "$INST_DATA" ]; then
-              INST_MISSED=$(echo "$INST_DATA" | cut -d' ' -f1)
-              INST_TOTAL=$(echo "$INST_DATA" | cut -d' ' -f3)
+            # İlk satırdan Instruction coverage
+            INST_LINE=$(sed -n '1p' /tmp/bars.txt)
+            INST_MISSED=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
+            INST_TOTAL=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
+          
+            if [ -n "$INST_TOTAL" ] && [ "$INST_TOTAL" -gt 0 ]; then
               INST_COVERED=$((INST_TOTAL - INST_MISSED))
               INST_PCT=$(awk "BEGIN {printf \"%.0f\", ($INST_COVERED/$INST_TOTAL)*100}")
             else
               INST_PCT="N/A"
             fi
           
-            # Branch coverage: İkinci bar satırı
-            BRANCH_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | sed -n '2p' | grep -oP '\d+ of \d+')
+            # İkinci satırdan Branch coverage
+            BRANCH_LINE=$(sed -n '2p' /tmp/bars.txt)
+            BRANCH_MISSED=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
+            BRANCH_TOTAL=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
           
-            if [ -n "$BRANCH_DATA" ]; then
-              BRANCH_MISSED=$(echo "$BRANCH_DATA" | cut -d' ' -f1)
-              BRANCH_TOTAL=$(echo "$BRANCH_DATA" | cut -d' ' -f3)
+            if [ -n "$BRANCH_TOTAL" ] && [ "$BRANCH_TOTAL" -gt 0 ]; then
               BRANCH_COVERED=$((BRANCH_TOTAL - BRANCH_MISSED))
               BRANCH_PCT=$(awk "BEGIN {printf \"%.0f\", ($BRANCH_COVERED/$BRANCH_TOTAL)*100}")
             else
