@@ -40,7 +40,7 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary'e de ekle (Sadece Instruction ve Branch Coverage)
+      # JaCoCo Summary'e de ekle (Debug ile)
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
@@ -49,39 +49,46 @@ jobs:
           JACOCO_HTML="target/site/jacoco/index.html"
           
           if [ -f "$JACOCO_HTML" ]; then
-            # Instruction coverage: "26 of 296" formatından parse
-            INST_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | head -1 | grep -oP '\d+ of \d+')
-            INST_MISSED=$(echo "$INST_DATA" | cut -d' ' -f1)
-            INST_TOTAL=$(echo "$INST_DATA" | cut -d' ' -f3)
+            echo "DEBUG: JaCoCo HTML bulundu, parse ediliyor..." >> $GITHUB_STEP_SUMMARY
           
-            # Branch coverage: "1 of 14" formatından parse  
-            BRANCH_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | sed -n '2p' | grep -oP '\d+ of \d+')
-            BRANCH_MISSED=$(echo "$BRANCH_DATA" | cut -d' ' -f1)
-            BRANCH_TOTAL=$(echo "$BRANCH_DATA" | cut -d' ' -f3)
+            # Tüm bar verilerini çek
+            grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' > /tmp/jacoco_bars.txt
+            cat /tmp/jacoco_bars.txt
           
-            # Güvenli hesaplama (boş değer kontrolü)
-            if [ -n "$INST_TOTAL" ] && [ "$INST_TOTAL" -gt 0 ]; then
+            # Instruction coverage: "26 of 296" 
+            INST_DATA=$(cat /tmp/jacoco_bars.txt | head -1 | grep -oP '\d+ of \d+' || echo "")
+            echo "DEBUG: INST_DATA = $INST_DATA"
+          
+            if [ -n "$INST_DATA" ]; then
+              INST_MISSED=$(echo "$INST_DATA" | cut -d' ' -f1)
+              INST_TOTAL=$(echo "$INST_DATA" | cut -d' ' -f3)
               INST_COVERED=$((INST_TOTAL - INST_MISSED))
               INST_PCT=$(awk "BEGIN {printf \"%.0f\", ($INST_COVERED/$INST_TOTAL)*100}")
             else
-              INST_PCT="0"
+              INST_PCT="N/A"
             fi
           
-            if [ -n "$BRANCH_TOTAL" ] && [ "$BRANCH_TOTAL" -gt 0 ]; then
+            # Branch coverage: "1 of 14"
+            BRANCH_DATA=$(cat /tmp/jacoco_bars.txt | sed -n '2p' | grep -oP '\d+ of \d+' || echo "")
+            echo "DEBUG: BRANCH_DATA = $BRANCH_DATA"
+          
+            if [ -n "$BRANCH_DATA" ]; then
+              BRANCH_MISSED=$(echo "$BRANCH_DATA" | cut -d' ' -f1)
+              BRANCH_TOTAL=$(echo "$BRANCH_DATA" | cut -d' ' -f3)
               BRANCH_COVERED=$((BRANCH_TOTAL - BRANCH_MISSED))
               BRANCH_PCT=$(awk "BEGIN {printf \"%.0f\", ($BRANCH_COVERED/$BRANCH_TOTAL)*100}")
             else
-              BRANCH_PCT="0"
+              BRANCH_PCT="N/A"
             fi
           
             # Tablo oluştur
             echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Instruction Coverage** | ${INST_PCT}% | $([ $INST_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Branch Coverage** | ${BRANCH_PCT}% | $([ $BRANCH_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Instruction Coverage** | ${INST_PCT}% | $([ "$INST_PCT" != "N/A" ] && [ $INST_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+            echo "| **Branch Coverage** | ${BRANCH_PCT}% | $([ "$BRANCH_PCT" != "N/A" ] && [ $BRANCH_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ JaCoCo raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ JaCoCo HTML raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
           fi
 
       # 4. JACOCO RAPORUNU YÜKLE
