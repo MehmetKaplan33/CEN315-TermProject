@@ -29,14 +29,14 @@ jobs:
       - name: Build and Test with Maven
         run: mvn -B verify --file pom.xml
 
-        # --- GÜNCELLENDİ: JACOCO ÖZET RAPORU ---
+      # --- JACOCO ÖZET RAPORU (Dinamik Tablo) ---
       - name: JaCoCo Report Summary
         uses: Madrapps/jacoco-report@v1.6.1
         with:
           paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 80
-          title: "📊 Code Coverage Summary"
+          title: "📊 Code Coverage Overview"
 
       # 4. JACOCO RAPORUNU YÜKLE
       - name: Upload JaCoCo Report
@@ -46,9 +46,24 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (MUTASYON) ÇALIŞTIR
+      # 5. PITEST (MUTASYON) ÇALIŞTIR VE DİNAMİK ÖZET OLUŞTUR
       - name: Run PITest Mutation Analysis
-        run: mvn org.pitest:pitest-maven:mutationCoverage
+        run: |
+          mvn org.pitest:pitest-maven:mutationCoverage
+          
+          echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
+          
+          # HTML raporundaki yüzdeleri bulmak için 'grep' ve 'sed' kullanıyoruz
+          # Mutation Coverage değerini çek
+          MUT_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | head -1)
+          # Line Coverage değerini çek
+          LINE_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | sed -n '2p')
+          
+          echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mutation Coverage | $MUT_COV% | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| Line Coverage | $LINE_COV% | ✅ |" >> $GITHUB_STEP_SUMMARY
+          echo -e "\nDetailed mutation results available in Artifacts." >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
       - name: Upload PITest Report
@@ -61,14 +76,9 @@ jobs:
       # 7. UYGULAMAYI ARKA PLANDA BAŞLAT
       - name: Start Spring Boot App
         run: |
-          # Varsayılan application.properties zaten H2 ayarlı
-          # H2 driver artık JAR içinde olduğu için direkt çalışacak
           nohup java -jar target/*.jar > app.log 2>&1 &
-          
-          echo "Uygulama başlatılıyor, 20 saniye bekleniyor..."
-          sleep 20
-          
-          # Actuator 500 dönebilir, o yüzden direkt API'yi kontrol ediyoruz
+          echo "Uygulama başlatılıyor, 25 saniye bekleniyor..."
+          sleep 25
           curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor! Loglar:" && cat app.log && exit 1)
 
       # 8. POSTMAN TESTLERİ (NEWMAN)
@@ -77,28 +87,30 @@ jobs:
         with:
           node-version: '20'
 
-      # --- GÜNCELLENDİ: NEWMAN TABLO RAPORU ---
+      # --- NEWMAN TERMİNAL TABLOSU (Markdown Kod Bloğu) ---
       - name: Run Postman Collection
         run: |
-          npm install -g newman newman-reporter-markdown
-          newman run tests/postman/collection.json -r cli,markdown --reporter-markdown-export postman-report.md
-          echo "## 🚀 API Test Results (Postman)" >> $GITHUB_STEP_SUMMARY
-          cat postman-report.md >> $GITHUB_STEP_SUMMARY
+          npm install -g newman
+          echo "### 🚀 API Test Run Summary (Newman)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          # Newman özet tablosunu yakalar
+          newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 9. PERFORMANS TESTLERİ (k6)
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      # --- GÜNCELLENDİ: k6 METRİK ÖZETİ ---
+      # --- k6 TERMİNAL RAPORU (Tam Görünüm) ---
       - name: Run k6 Load Test
         run: |
-          k6 run tests/k6/load_test.js > k6-output.txt
-          echo "## ⚡ Performance Test Metrics (k6)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -E "http_req_duration|http_reqs|iterations|vus" k6-output.txt >> $GITHUB_STEP_SUMMARY
+          echo "### ⚡ Performance Test Results (k6)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          # k6 terminal çıktısını yakalar
+          k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # 10. UYGULAMA LOGLARINI YÜKLE (Hata Ayıklama İçin)
+      # 10. UYGULAMA LOGLARINI YÜKLE
       - name: Upload Application Logs
         if: always()
         uses: actions/upload-artifact@v4
