@@ -29,14 +29,14 @@ jobs:
       - name: Build and Test with Maven
         run: mvn -B verify --file pom.xml
 
-      # --- JACOCO ÖZET RAPORU (Dinamik Tablo) ---
+      # --- JACOCO ÖZET RAPORU (Dinamik Görselleştirme) ---
       - name: JaCoCo Report Summary
         uses: Madrapps/jacoco-report@v1.6.1
         with:
           paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 80
-          title: "📊 Code Coverage Overview"
+          title: "📊 JaCoCo Code Coverage Summary"
 
       # 4. JACOCO RAPORUNU YÜKLE
       - name: Upload JaCoCo Report
@@ -46,23 +46,36 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (MUTASYON) ÇALIŞTIR VE DİNAMİK ÖZET OLUŞTUR
+      # 5. PITEST (MUTASYON) ÇALIŞTIR VE GÖRSEL DASHBOARD OLUŞTUR
       - name: Run PITest Mutation Analysis
         run: |
           mvn org.pitest:pitest-maven:mutationCoverage
           
-          echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
+          # PITest HTML raporundan verileri ayıkla
+          # Mutation Coverage
+          MUT_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | head -1 || echo "0")
+          # Line Coverage
+          LINE_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | sed -n '2p' || echo "0")
           
-          # HTML raporundaki yüzdeleri bulmak için 'grep' ve 'sed' kullanıyoruz
-          # Mutation Coverage değerini çek
-          MUT_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | head -1)
-          # Line Coverage değerini çek
-          LINE_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | sed -n '2p')
-          
-          echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| Mutation Coverage | $MUT_COV% | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Line Coverage | $LINE_COV% | ✅ |" >> $GITHUB_STEP_SUMMARY
+          # Dinamik Bar oluşturma fonksiyonu
+          get_bar() {
+            local perc=$1
+            local filled=$((perc / 10))
+            local empty=$((10 - filled))
+            local bar=""
+            for i in $(seq 1 $filled); do bar+="🟩"; done
+            for i in $(seq 1 $empty); do bar+="⬜"; done
+            echo "$bar"
+          }
+
+          BAR_MUT=$(get_bar $MUT_COV)
+          BAR_LINE=$(get_bar $LINE_COV)
+
+          echo "### 🧬 Mutation Testing Dashboard (PITest)" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Score | Visualization | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Mutation Coverage** | $MUT_COV% | $BAR_MUT | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Line Coverage** | $LINE_COV% | $BAR_LINE | ✅ |" >> $GITHUB_STEP_SUMMARY
           echo -e "\nDetailed mutation results available in Artifacts." >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
@@ -87,13 +100,12 @@ jobs:
         with:
           node-version: '20'
 
-      # --- NEWMAN TERMİNAL TABLOSU (Markdown Kod Bloğu) ---
+      # --- NEWMAN TERMİNAL TABLOSU ---
       - name: Run Postman Collection
         run: |
           npm install -g newman
           echo "### 🚀 API Test Run Summary (Newman)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          # Newman özet tablosunu yakalar
           newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
@@ -101,12 +113,11 @@ jobs:
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      # --- k6 TERMİNAL RAPORU (Tam Görünüm) ---
+      # --- k6 TERMİNAL RAPORU ---
       - name: Run k6 Load Test
         run: |
           echo "### ⚡ Performance Test Results (k6)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          # k6 terminal çıktısını yakalar
           k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
