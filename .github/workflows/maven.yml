@@ -12,6 +12,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: write
+      checks: write # JaCoCo tablo görünürlüğü için gerekli
 
     steps:
       # 1. KODU ÇEK
@@ -25,11 +26,12 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
 
-      # 3. DERLEME, UNIT TEST & ENTEGRASYON (JUnit + jqwik + ACTS)
+      # 3. DERLEME VE TESTLER
       - name: Build and Test with Maven
         run: mvn -B verify --file pom.xml
 
-      # --- JACOCO ÖZET RAPORU (Dinamik Görselleştirme) ---
+      # --- JACOCO SUMMARY (Dinamik Tablo) ---
+      # Bu adım otomatik olarak projedeki paket bazlı coverage oranlarını tabloya basar
       - name: JaCoCo Report Summary
         uses: Madrapps/jacoco-report@v1.6.1
         with:
@@ -37,6 +39,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           min-coverage-overall: 80
           title: "📊 JaCoCo Code Coverage Summary"
+          update-comment: true
 
       # 4. JACOCO RAPORUNU YÜKLE
       - name: Upload JaCoCo Report
@@ -46,37 +49,20 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (MUTASYON) ÇALIŞTIR VE GÖRSEL DASHBOARD OLUŞTUR
-      - name: Run PITest Mutation Analysis
+      # 5. PITEST (MUTASYON) VE DİNAMİK VERİ ÇEKME
+      - name: Run PITest and Extract Summary
         run: |
           mvn org.pitest:pitest-maven:mutationCoverage
           
-          # PITest HTML raporundan verileri ayıkla
-          # Mutation Coverage
+          # PITest HTML raporundan Mutation ve Line Coverage verilerini ayıkla
           MUT_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | head -1 || echo "0")
-          # Line Coverage
           LINE_COV=$(grep -oP '\d+(?=% / \d+%)' target/pit-reports/index.html | sed -n '2p' || echo "0")
           
-          # Dinamik Bar oluşturma fonksiyonu
-          get_bar() {
-            local perc=$1
-            local filled=$((perc / 10))
-            local empty=$((10 - filled))
-            local bar=""
-            for i in $(seq 1 $filled); do bar+="🟩"; done
-            for i in $(seq 1 $empty); do bar+="⬜"; done
-            echo "$bar"
-          }
-
-          BAR_MUT=$(get_bar $MUT_COV)
-          BAR_LINE=$(get_bar $LINE_COV)
-
-          echo "### 🧬 Mutation Testing Dashboard (PITest)" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Score | Visualization | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Mutation Coverage** | $MUT_COV% | $BAR_MUT | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Line Coverage** | $LINE_COV% | $BAR_LINE | ✅ |" >> $GITHUB_STEP_SUMMARY
-          echo -e "\nDetailed mutation results available in Artifacts." >> $GITHUB_STEP_SUMMARY
+          echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Mutation Coverage** | $MUT_COV% | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Line Coverage** | $LINE_COV% | ✅ |" >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
       - name: Upload PITest Report
@@ -92,33 +78,35 @@ jobs:
           nohup java -jar target/*.jar > app.log 2>&1 &
           echo "Uygulama başlatılıyor, 25 saniye bekleniyor..."
           sleep 25
-          curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor! Loglar:" && cat app.log && exit 1)
+          curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor!" && cat app.log && exit 1)
 
-      # 8. POSTMAN TESTLERİ (NEWMAN)
+      # 8. POSTMAN TESTLERİ (NEWMAN TERMİNAL TABLOSU)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      # --- NEWMAN TERMİNAL TABLOSU ---
       - name: Run Postman Collection
         run: |
           npm install -g newman
-          echo "### 🚀 API Test Run Summary (Newman)" >> $GITHUB_STEP_SUMMARY
+          echo "### 🚀 API Test Results (Newman)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
+          # Newman özet tablosunu yakalar
           newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # 9. PERFORMANS TESTLERİ (k6)
+      # 9. PERFORMANS TESTLERİ (k6 SADECE ÖZET)
       - name: Setup k6
         uses: grafana/setup-k6-action@v1
 
-      # --- k6 TERMİNAL RAPORU ---
       - name: Run k6 Load Test
         run: |
-          echo "### ⚡ Performance Test Results (k6)" >> $GITHUB_STEP_SUMMARY
+          # k6 çıktısını dosyaya yazıp sadece önemli kısımları (Thresholds & Results) ayıklıyoruz
+          k6 run tests/k6/load_test.js > k6_full_log.txt
+          echo "### ⚡ Performance Summary (k6)" >> $GITHUB_STEP_SUMMARY
           echo '```text' >> $GITHUB_STEP_SUMMARY
-          k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY
+          # Log dosyasından sadece özet tablolarını çekmek için sed kullanıyoruz
+          sed -n '/█ THRESHOLDS/,/NETWORK/p' k6_full_log.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 10. UYGULAMA LOGLARINI YÜKLE
