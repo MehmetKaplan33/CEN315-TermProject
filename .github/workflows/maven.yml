@@ -40,7 +40,7 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary'e de ekle (Debug ile)
+      # JaCoCo Summary'e de ekle (Fixed: Her satırı ayrı parse et)
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
@@ -49,15 +49,8 @@ jobs:
           JACOCO_HTML="target/site/jacoco/index.html"
           
           if [ -f "$JACOCO_HTML" ]; then
-            echo "DEBUG: JaCoCo HTML bulundu, parse ediliyor..." >> $GITHUB_STEP_SUMMARY
-          
-            # Tüm bar verilerini çek
-            grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' > /tmp/jacoco_bars.txt
-            cat /tmp/jacoco_bars.txt
-          
-            # Instruction coverage: "26 of 296" 
-            INST_DATA=$(cat /tmp/jacoco_bars.txt | head -1 | grep -oP '\d+ of \d+' || echo "")
-            echo "DEBUG: INST_DATA = $INST_DATA"
+            # Instruction coverage: İlk bar satırı
+            INST_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | head -1 | grep -oP '\d+ of \d+')
           
             if [ -n "$INST_DATA" ]; then
               INST_MISSED=$(echo "$INST_DATA" | cut -d' ' -f1)
@@ -68,9 +61,8 @@ jobs:
               INST_PCT="N/A"
             fi
           
-            # Branch coverage: "1 of 14"
-            BRANCH_DATA=$(cat /tmp/jacoco_bars.txt | sed -n '2p' | grep -oP '\d+ of \d+' || echo "")
-            echo "DEBUG: BRANCH_DATA = $BRANCH_DATA"
+            # Branch coverage: İkinci bar satırı
+            BRANCH_DATA=$(grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' | sed -n '2p' | grep -oP '\d+ of \d+')
           
             if [ -n "$BRANCH_DATA" ]; then
               BRANCH_MISSED=$(echo "$BRANCH_DATA" | cut -d' ' -f1)
