@@ -1,233 +1,265 @@
-# 🏋️‍♂️ Appointment & Dynamic Pricing Service (CEN315 Term Project)
 
-![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=java)
-![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.8-green?style=flat-square&logo=springboot)
-![Docker](https://img.shields.io/badge/Docker-Enabled-blue?style=flat-square&logo=docker)
-![Coverage](https://img.shields.io/badge/Coverage-91%25-brightgreen?style=flat-square)
-![Tests](https://img.shields.io/badge/Tests-Passing-success?style=flat-square)
+# 🏋️‍♂️ Gym Service: End-to-End Test Engineering Project
 
-This project is a RESTful API service designed for a fitness centre management system. It demonstrates advanced test engineering practices including TDD, Mutation Testing, Property-Based Testing, and Formal Verification.
+[![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.8-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-blue.svg)](https://www.docker.com/)
+[![Test Coverage](https://img.shields.io/badge/Coverage-90%25+-success.svg)](https://www.jacoco.org/)
 
-**Student:** Mehmet Kaplan  
-**Course:** CEN315 Introduction to Test Engineering
+> A high-reliability RESTful API developed for **CEN315 Introduction to Test Engineering** course, implementing a complete test engineering lifecycle from TDD to advanced quality assurance practices.
 
----
+## 📖 Project Overview
 
-## 📖 About The Project
+**Gym Service** is a comprehensive fitness center management system that handles:
 
-This system is built to handle the core operations of a fitness center with a focus on reliability, security, and scalability. Key features include:
+- 👥 **Member Management** - Registration, profile management, and membership tiers
+- 📅 **Class Scheduling** - Session planning and capacity management
+- 💰 **Dynamic Pricing Engine** - Intelligent pricing based on demand and membership type
+- 🎫 **Reservation System** - Real-time booking with validation
 
-- **Dynamic Pricing Engine:** Calculates prices based on membership tiers (Standard, Premium, Student) and class occupancy (Surge Pricing).
-- **Real-time Capacity Management:** Prevents overbooking by checking class capacity before confirming reservations using Design by Contract.
-- **Robust Reservation System:** Supports booking and cancellation with automatic inventory updates.
-- **Quality Assurance:** Fully tested with Unit, Integration, Mutation, Performance, and Security tests.
+### ✨ Key Technical Features
 
----
+* **Dynamic Pricing Algorithm**
+  - Surge Pricing when occupancy exceeds 80%
+  - Tier-based discounts (Premium/Student memberships)
+  - Real-time price calculation based on demand
 
-## 🚀 Project Status: Weeks 1-3 Completed
+* **Design by Contract**
+  - Enforces system invariants using Spring Assertions
+  - Formal `validateState()` methods for business logic integrity
+  - Defensive programming with comprehensive validation
 
-### ✅ Week 1: Infrastructure & Core Logic
-- [x] **Project Setup:** Spring Boot 3.5.8, Java 21, Maven.
-- [x] **Database:** H2 (In-Memory) for testing, PostgreSQL (Docker) for production.
-- [x] **Architecture:** Layered Architecture (Controller -> Service -> Repository).
-- [x] **Core Logic:** `PricingService` implemented with **TDD**.
-- [x] **API:** Basic endpoints for Members, Classes, and Reservations.
-- [x] **Unit Testing:** Mockito tests for Service layer isolation.
+* **Enterprise-Grade Quality Assurance**
+  - Mutation Testing (PITest)
+  - Property-Based Testing (jqwik)
+  - Combinatorial Testing (ACTS)
+  - Performance Testing (k6)
+  - Security Testing (OWASP ZAP)
+  - API Contract Testing (Newman)
 
-### ✅ Week 2: Advanced Testing & Quality Assurance
-- [x] **Code Coverage:** Achieved **91% Instruction** / **100% Branch** coverage (JaCoCo).
-- [x] **Mutation Testing:** Achieved **79% Mutation Coverage** in Service layer (PITest).
-- [x] **API Automation:** Automated integration tests using **Postman & Newman**.
-- [x] **Property-Based Testing:** Verified mathematical invariants using `jqwik`.
-- [x] **Decision Tables:** Implemented parameterized tests for complex pricing rules.
-- [x] **Model-Based Testing:** Verified state transitions for Reservations.
+## 🛠️ Tech Stack & Requirements
 
-### ✅ Week 3: Verification, Security & DevOps
-- [x] **Performance Testing:** Conducted Load tests (50 concurrent users) using **k6** with <7ms p95 latency.
-- [x] **Security Testing:** Automated vulnerability scanning with **OWASP ZAP** & STRIDE Threat Modeling.
-- [x] **Formal Verification:** Applied **Design by Contract** (Spring Assert) and **TLA+** model checking specifications.
-- [x] **Docker Infrastructure:** Production-ready containerization with Multi-stage builds and PostgreSQL integration.
+### Core Technologies
 
----
+* **Language:** Java 21 (Temurin JDK)
+* **Framework:** Spring Boot 3.5.8
+* **Database:** H2 (In-Memory for Dev) / PostgreSQL 15 (Docker for Prod)
+* **Build Tool:** Maven 3.9+
+* **Containerization:** Docker & Docker Compose
 
-## 🔗 API Endpoints
+### Testing Tools & Libraries
 
-<table>
-<tr>
-<th>Category</th>
-<th>Method</th>
-<th>Endpoint</th>
-<th>Description</th>
-</tr>
-<tr>
-<td rowspan="3">👤 <strong>Members</strong></td>
-<td><code>POST</code></td>
-<td><code>/members</code></td>
-<td>Register a new member</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/members</code></td>
-<td>List all registered members</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/members/{id}</code></td>
-<td>Get details of a specific member</td>
-</tr>
-<tr>
-<td rowspan="2">🧘 <strong>Classes</strong></td>
-<td><code>POST</code></td>
-<td><code>/classes</code></td>
-<td>Schedule a new fitness class</td>
-</tr>
-<tr>
-<td><code>GET</code></td>
-<td><code>/classes</code></td>
-<td>List all scheduled classes</td>
-</tr>
-<tr>
-<td rowspan="2">🎫 <strong>Reservations</strong></td>
-<td><code>POST</code></td>
-<td><code>/reservations</code></td>
-<td>Make a reservation (Triggers dynamic pricing & capacity check)</td>
-</tr>
-<tr>
-<td><code>DELETE</code></td>
-<td><code>/reservations/{id}</code></td>
-<td>Cancel a reservation (Restores capacity)</td>
-</tr>
-</table>
+| Tool | Purpose | Version |
+|------|---------|---------|
+| JUnit 5 | Unit Testing Framework | 5.10.1 |
+| Mockito | Mocking Framework | 5.8.0 |
+| jqwik | Property-Based Testing | 1.8.2 |
+| PITest | Mutation Testing | 1.15.3 |
+| Newman | API Testing | Latest |
+| k6 | Load/Performance Testing | Latest |
+| OWASP ZAP | Security Testing | 2.14+ |
+| JaCoCo | Code Coverage | 0.8.11 |
 
 ---
 
-## ⚙️ How to Run
+## 🚀 Getting Started
 
-### 📋 1. Prerequisites
+### Prerequisites
 
-- ☕ **JDK 21** or higher
-- 🐳 **Docker & Docker Compose** (Recommended for production environment)
-- 📦 **Node.js & Newman** (For API automation testing)
-- 🚀 **k6** (For performance testing)
+Before running the project, ensure you have the following installed:
 
----
+- **Java 21** or higher ([Download](https://adoptium.net/))
+- **Docker & Docker Compose** ([Download](https://www.docker.com/products/docker-desktop))
+- **Maven 3.9+** (included via wrapper: `./mvnw`)
 
-### 🐳 2. Run with Docker (Recommended)
+### Installation & Execution
 
-The project includes a production-ready `docker-compose` setup with PostgreSQL.
+#### Option 1: Run with Docker (🌟 Recommended)
+
+The project is fully containerized with a multi-stage build for the application and a dedicated PostgreSQL instance.
 
 ```bash
-# Build and start the application and database
+# Build and start all services
 docker-compose up --build
 ```
 
-**Access Points:**
-- 🌐 **API URL:** `http://localhost:8080`
-- 🗄️ **Database:** PostgreSQL (Internal Docker Network)
+**Services:**
+- 🌐 **API:** http://localhost:8080
+- 🗄️ **Database:** PostgreSQL (Internal network only)
+- 📊 **Health Check:** http://localhost:8080/actuator/health
 
----
+**API Endpoints:**
+- `GET /members` - List all members
+- `GET /members/{id}` - List member by ID
+- `POST /members` - Register new member
+- `GET /classes` - List available classes
+- `POST /classes` - Create new class
+- `POST /reservations` - Create reservation
+- `DELETE /reservations/{id}` - Cancel reservation
 
-### 💻 3. Run Locally (with H2 Database)
-
-For quick development and testing without Docker:
+#### Option 2: Run Locally (Development Mode)
 
 ```bash
+# Run with embedded H2 database
 ./mvnw spring-boot:run
 ```
 
-**Access Points:**
-- 🌐 **API URL:** `http://localhost:8080`
-- 🗄️ **H2 Console:** `http://localhost:8080/h2-console`
+**Development Resources:**
+- 🌐 **API:** http://localhost:8080
+- 💾 **H2 Console:** http://localhost:8080/h2-console
   - **JDBC URL:** `jdbc:h2:mem:gymdb`
   - **Username:** `sa`
   - **Password:** _(empty)_
 
----
-
-## 🧪 How to Run Tests
-
-### ✅ Unit & Integration Tests
-
-Run all JUnit tests (including TDD, Mocking, and Property-Based tests):
+#### Stopping the Application
 
 ```bash
-./mvnw test
+# For Docker
+docker-compose down
+
+# For local run (Ctrl+C in terminal)
 ```
-
 ---
 
-### 📊 Coverage Report (JaCoCo)
+## 🧪 Testing Suite Execution
 
-Generate the code coverage report:
+This project implements a comprehensive testing strategy covering multiple testing levels and methodologies.
+
+### 📊 Unit & Integration Tests
+
+Run all unit and integration tests with JaCoCo code coverage:
 
 ```bash
+# Run all tests and generate coverage report
 ./mvnw clean verify
 ```
 
-**📁 Report Location:** `target/site/jacoco/index.html`
+**📈 Coverage Report:** Open `target/site/jacoco/index.html` in your browser
 
----
+**Test Types Included:**
+- ✅ Unit Tests (JUnit 5 + Mockito)
+- ✅ Property-Based Tests (jqwik)
+- ✅ Combinatorial Tests (ACTS)
+- ✅ Integration Tests (Spring Boot Test)
 
-### 🧬 Mutation Testing (PITest)
+### 🧬 Mutation Testing
 
-Run mutation tests to verify test quality:
+Evaluate the quality and effectiveness of your test suite:
 
 ```bash
+# Run PITest mutation analysis
 ./mvnw org.pitest:pitest-maven:mutationCoverage
 ```
 
-**📁 Report Location:** `target/pit-reports/index.html`
+**📊 Mutation Report:** Open `target/pit-reports/index.html` in your browser
 
----
+**Metrics:**
+- Line Coverage
+- Mutation Coverage
+- Test Strength
 
-### 🚀 Performance Tests (k6)
+### 🌐 API Contract Testing
 
-Run load tests (requires k6 installed):
+Test API endpoints with comprehensive assertions:
 
 ```bash
+# Install Newman globally (if not installed)
+npm install -g newman
+
+# Run Postman collection
+newman run tests/postman/collection.json
+```
+
+**Tests Include:**
+- Request/Response validation
+- Status code verification
+- Business logic assertions
+
+### ⚡ Performance & Load Testing
+
+Measure system performance under load:
+
+```bash
+# Install k6 (if not installed)
+# Windows: choco install k6
+# macOS: brew install k6
+
+# Run load tests
+k6 run tests/k6/load_test.js
+```
+
+**Metrics Monitored:**
+- Response times (p95, p99)
+- Requests per second
+- Error rates
+- Throughput
+
+### 🔒 Security Testing
+
+Run security vulnerability scanning with OWASP ZAP:
+
+```bash
+# Results available at: docs/security_report.html
+```
+
+### 📋 Run All Tests at Once
+
+```bash
+# Complete test suite execution
+./mvnw clean verify && \
+./mvnw org.pitest:pitest-maven:mutationCoverage && \
+newman run tests/postman/collection.json && \
 k6 run tests/k6/load_test.js
 ```
 
 ---
 
-### 🔄 API Automation (Newman)
+## 📊 CI/CD & Quality Dashboard
 
-To run the Postman collection from the command line:
+The project utilizes **GitHub Actions** for continuous quality assurance. Every commit triggers a comprehensive pipeline that generates a **Dynamic Quality Dashboard** with real-time metrics.
 
-```bash
-newman run tests/postman/CEN315_Gym.postman_collection.json
-```
+### Pipeline Stages
 
-> ⚠️ **Note:** Make sure the application is running before executing this command.
+1. **🏗️ Build & Compile** - Maven clean install
+2. **🧪 Unit Tests** - JUnit 5 + jqwik property tests
+3. **📊 Coverage Analysis** - JaCoCo report generation
+4. **🧬 Mutation Testing** - PITest mutation coverage
+5. **🌐 API Tests** - Newman contract validation
+6. **⚡ Load Tests** - k6 performance benchmarks
+7. **🔒 Security Scan** - OWASP ZAP vulnerability assessment
 
----
+### Quality Metrics Dashboard
 
-## 📚 Documentation
+Every build generates a summary including:
 
-- 📄 **Test Strategy Plan:** `docs/Test Strategy Plan.pdf`
-- 🔒 **Security Report:** `docs/security_report.html`
-- 📊 **Code Coverage:** `target/site/jacoco/index.html`
-- 🧬 **Mutation Report:** `target/pit-reports/index.html`
-
----
-
-## 🛠️ Tech Stack
-
-| Category | Technologies |
-|----------|-------------|
-| **Language** | Java 21 |
-| **Framework** | Spring Boot 3.5.8 |
-| **Database** | PostgreSQL (Production), H2 (Testing) |
-| **Testing** | JUnit 5, Mockito, jqwik, k6, Newman |
-| **Build Tool** | Maven |
-| **Containerization** | Docker, Docker Compose |
-| **Code Quality** | JaCoCo, PITest, OWASP ZAP |
+* **JaCoCo Summary:** Package-level coverage statistics
+* **PITest Summary:** Mutation coverage and test strength percentages
+* **Newman Results:** API assertion status matrix
+* **k6 Metrics:** Latency and threshold validations
 
 ---
 
-## 📝 License
+## 📂 Documentation Structure
 
-This project is developed as part of CEN315 Introduction to Test Engineering course.
+* `docs/Test Strategy Plan.pdf` - Comprehensive test planning and strategy document
+* `docs/security_report.html` - OWASP ZAP security analysis report
+* `tests/postman/` - Newman/Postman API test collections
+* `tests/k6/` - Performance and load testing scripts
+* `tools/` - ACTS combinatorial testing tools
 
-**© 2025 Mehmet Kaplan - All Rights Reserved**
+---
+
+## 🏆 Quality Metrics
+
+| Metric | Target | Real Status | Tool |
+|--------|--------|-------------|------|
+| **Instruction Coverage** | >80% | ✅ **91%** | JaCoCo |
+| **Mutation Coverage** | >80% | ✅ **83%** | PITest |
+| **Test Strength** | >90% | ✅ **92%** | PITest |
+| **Property Tests** | 1000 cases | ✅ **1000/1000** | jqwik |
+| **API Assertions** | 100% pass | ✅ **100%** | Newman |
+| **Performance (p95)** | <2000ms | ✅ **6.47ms** | k6 |
+| **Security** | OWASP verified | ✅ **Validated** | ZAP |
+
+---
 
