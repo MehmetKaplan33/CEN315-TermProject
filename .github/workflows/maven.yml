@@ -52,25 +52,37 @@ jobs:
           if [ -f "$JACOCO_XML" ]; then
             python3 << 'PYEOF' >> $GITHUB_STEP_SUMMARY
           import xml.etree.ElementTree as ET
-          import sys
 
           try:
               tree = ET.parse('target/site/jacoco/jacoco.xml')
               root = tree.getroot()
 
-              # Find INSTRUCTION counter
-              inst_counter = root.find(".//counter[@type='INSTRUCTION']")
-              inst_covered = int(inst_counter.get('covered', 0)) if inst_counter is not None else 0
-              inst_missed = int(inst_counter.get('missed', 0)) if inst_counter is not None else 0
-              inst_total = inst_covered + inst_missed
-              inst_pct = int((inst_covered / inst_total) * 100) if inst_total > 0 else 0
+              inst_counter = None
+              branch_counter = None
 
-              # Find BRANCH counter
-              branch_counter = root.find(".//counter[@type='BRANCH']")
-              branch_covered = int(branch_counter.get('covered', 0)) if branch_counter is not None else 0
-              branch_missed = int(branch_counter.get('missed', 0)) if branch_counter is not None else 0
-              branch_total = branch_covered + branch_missed
-              branch_pct = int((branch_covered / branch_total) * 100) if branch_total > 0 else 0
+              for counter in root.findall("counter"):
+                  if counter.get('type') == 'INSTRUCTION':
+                      inst_counter = counter
+                  elif counter.get('type') == 'BRANCH':
+                      branch_counter = counter
+
+              # Calculate instruction coverage
+              if inst_counter is not None:
+                  inst_covered = int(inst_counter.get('covered', 0))
+                  inst_missed = int(inst_counter.get('missed', 0))
+                  inst_total = inst_covered + inst_missed
+                  inst_pct = int((inst_covered / inst_total) * 100) if inst_total > 0 else 0
+              else:
+                  inst_pct = 0
+
+              # Calculate branch coverage
+              if branch_counter is not None:
+                  branch_covered = int(branch_counter.get('covered', 0))
+                  branch_missed = int(branch_counter.get('missed', 0))
+                  branch_total = branch_covered + branch_missed
+                  branch_pct = int((branch_covered / branch_total) * 100) if branch_total > 0 else 0
+              else:
+                  branch_pct = 0
 
               print("| Metric | Coverage | Status |")
               print("| :--- | :--- | :--- |")
@@ -78,7 +90,7 @@ jobs:
               print(f"| **Branch Coverage** | {branch_pct}% | {'✅' if branch_pct >= 80 else '⚠️'} |")
               print("")
           except Exception as e:
-              print(f"Error parsing XML: {e}")
+              print(f"Parsing error: {e}")
           PYEOF
           else
             echo "⚠️ JaCoCo raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
