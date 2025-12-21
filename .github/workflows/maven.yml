@@ -144,3 +144,43 @@ jobs:
           name: pitest-report
           path: target/pit-reports/
 
+      # 7. UYGULAMAYI ARKA PLANDA BAŞLAT
+      - name: Start Spring Boot App
+        run: |
+          nohup java -jar target/*.jar > app.log 2>&1 &
+          echo "Uygulama başlatılıyor, 25 saniye bekleniyor..."
+          sleep 25
+          curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor!" && cat app.log && exit 1)
+
+      # 8. POSTMAN TESTLERİ (NEWMAN)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run Postman Collection
+        run: |
+          npm install -g newman
+          echo "### 🚀 API Test Results (Newman)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # 9. PERFORMANS TESTLERİ (k6)
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 Load Test
+        run: |
+          echo "### ⚡ Performance Summary (k6)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      # 10. UYGULAMA LOGLARINI YÜKLE
+      - name: Upload Application Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-log
+          path: app.log
