@@ -40,45 +40,32 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary (Debug eklenmiş)
+      # JaCoCo Summary - XML'den direkt parse
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          JACOCO_HTML="target/site/jacoco/index.html"
+          JACOCO_XML="target/site/jacoco/jacoco.xml"
           
-          if [ -f "$JACOCO_HTML" ]; then
-            # Bar satırlarını dosyaya yaz
-            grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' > /tmp/bars.txt
+          if [ -f "$JACOCO_XML" ]; then
+            # XML'den instruction coverage
+            INST_COVERED=$(xmllint --xpath "string(//counter[@type='INSTRUCTION']/@covered)" "$JACOCO_XML" 2>/dev/null || echo "0")
+            INST_MISSED=$(xmllint --xpath "string(//counter[@type='INSTRUCTION']/@missed)" "$JACOCO_XML" 2>/dev/null || echo "0")
+            INST_TOTAL=$((INST_COVERED + INST_MISSED))
           
-            echo "DEBUG: Bar satırları:" >> /tmp/debug.log
-            cat /tmp/bars.txt >> /tmp/debug.log
-          
-            # İlk satır: Instruction
-            INST_LINE=$(sed -n '1p' /tmp/bars.txt)
-            INST_MISSED=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
-            INST_TOTAL=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
-          
-            echo "DEBUG: INST_MISSED=$INST_MISSED, INST_TOTAL=$INST_TOTAL" >> /tmp/debug.log
-          
-            if [ -n "$INST_TOTAL" ] && [ "$INST_TOTAL" -gt 0 ]; then
-              INST_COVERED=$((INST_TOTAL - INST_MISSED))
+            if [ "$INST_TOTAL" -gt 0 ]; then
               INST_PCT=$(awk "BEGIN {printf \"%.0f\", ($INST_COVERED/$INST_TOTAL)*100}")
             else
               INST_PCT="N/A"
             fi
           
-            # İkinci satır: Branch
-            BRANCH_LINE=$(sed -n '2p' /tmp/bars.txt)
-            BRANCH_MISSED=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
-            BRANCH_TOTAL=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
+            # XML'den branch coverage
+            BRANCH_COVERED=$(xmllint --xpath "string(//counter[@type='BRANCH']/@covered)" "$JACOCO_XML" 2>/dev/null || echo "0")
+            BRANCH_MISSED=$(xmllint --xpath "string(//counter[@type='BRANCH']/@missed)" "$JACOCO_XML" 2>/dev/null || echo "0")
+            BRANCH_TOTAL=$((BRANCH_COVERED + BRANCH_MISSED))
           
-            echo "DEBUG: BRANCH_LINE=$BRANCH_LINE" >> /tmp/debug.log
-            echo "DEBUG: BRANCH_MISSED=$BRANCH_MISSED, BRANCH_TOTAL=$BRANCH_TOTAL" >> /tmp/debug.log
-          
-            if [ -n "$BRANCH_TOTAL" ] && [ "$BRANCH_TOTAL" -gt 0 ]; then
-              BRANCH_COVERED=$((BRANCH_TOTAL - BRANCH_MISSED))
+            if [ "$BRANCH_TOTAL" -gt 0 ]; then
               BRANCH_PCT=$(awk "BEGIN {printf \"%.0f\", ($BRANCH_COVERED/$BRANCH_TOTAL)*100}")
             else
               BRANCH_PCT="N/A"
@@ -90,16 +77,8 @@ jobs:
             echo "| **Instruction Coverage** | ${INST_PCT}% | $([ "$INST_PCT" != "N/A" ] && [ $INST_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "| **Branch Coverage** | ${BRANCH_PCT}% | $([ "$BRANCH_PCT" != "N/A" ] && [ $BRANCH_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-          
-            # Debug çıktısını göster
-            echo "<details><summary>🔍 Debug Log</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat /tmp/debug.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ JaCoCo HTML raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ JaCoCo raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
           fi
 
       # 4. JACOCO RAPORUNU YÜKLE
@@ -110,57 +89,39 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (Debug eklenmiş)
+      # 5. PITEST - Terminal çıktısından direkt parse
       - name: Run PITest and Extract Summary
         run: |
-          mvn org.pitest:pitest-maven:mutationCoverage
-          
-          PITEST_HTML="target/pit-reports/index.html"
+          # PITest çalıştır ve çıktıyı yakala
+          mvn org.pitest:pitest-maven:mutationCoverage | tee pitest_output.log
           
           echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          if [ -f "$PITEST_HTML" ]; then
-            echo "DEBUG: PITest HTML bulundu" >> /tmp/pitest_debug.log
+          # Terminal çıktısından parse et
+          LINE_COV=$(grep -oP 'Line Coverage \(for mutated classes only\): \d+/\d+ \(\K\d+' pitest_output.log || echo "0")
+          LINE_RATIO=$(grep -oP 'Line Coverage \(for mutated classes only\): \K\d+/\d+' pitest_output.log || echo "0/0")
           
-            # Project Summary tablosunu bul
-            grep -A 10 '<h3>Project Summary</h3>' "$PITEST_HTML" > /tmp/pitest_table.txt
-            cat /tmp/pitest_table.txt >> /tmp/pitest_debug.log
+          MUT_KILLED=$(grep -oP 'Generated \d+ mutations Killed \K\d+' pitest_output.log || echo "0")
+          MUT_TOTAL=$(grep -oP 'Generated \K\d+' pitest_output.log || echo "0")
           
-            # Line Coverage: width-XX class'ından çek
-            LINE_COV=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '1p' || echo "0")
-            LINE_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '1p' || echo "0/0")
-          
-            # Mutation Coverage
-            MUT_COV=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '2p' || echo "0")
-            MUT_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '2p' || echo "0/0")
-          
-            # Test Strength
-            TEST_STR=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '3p' || echo "0")
-            TEST_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '3p' || echo "0/0")
-          
-            echo "DEBUG: LINE_COV=$LINE_COV ($LINE_RATIO)" >> /tmp/pitest_debug.log
-            echo "DEBUG: MUT_COV=$MUT_COV ($MUT_RATIO)" >> /tmp/pitest_debug.log
-            echo "DEBUG: TEST_STR=$TEST_STR ($TEST_RATIO)" >> /tmp/pitest_debug.log
-          
-            # Tablo
-            echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
-            echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Line Coverage** | ${LINE_COV}% (${LINE_RATIO}) | $([ $LINE_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Mutation Coverage** | ${MUT_COV}% (${MUT_RATIO}) | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Test Strength** | ${TEST_STR}% (${TEST_RATIO}) | $([ $TEST_STR -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-          
-            # Debug
-            echo "<details><summary>🔍 PITest Debug</summary>" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            cat /tmp/pitest_debug.log >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            echo "</details>" >> $GITHUB_STEP_SUMMARY
+          if [ "$MUT_TOTAL" -gt 0 ]; then
+            MUT_COV=$(awk "BEGIN {printf \"%.0f\", ($MUT_KILLED/$MUT_TOTAL)*100}")
+            MUT_RATIO="${MUT_KILLED}/${MUT_TOTAL}"
           else
-            echo "⚠️ PITest raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
+            MUT_COV="0"
+            MUT_RATIO="0/0"
           fi
+          
+          TEST_STR=$(grep -oP 'Test strength \K\d+' pitest_output.log || echo "0")
+          
+          # Tablo
+          echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Line Coverage** | ${LINE_COV}% (${LINE_RATIO}) | $([ $LINE_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Mutation Coverage** | ${MUT_COV}% (${MUT_RATIO}) | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Strength** | ${TEST_STR}% | $([ $TEST_STR -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
       - name: Upload PITest Report
@@ -169,3 +130,4 @@ jobs:
         with:
           name: pitest-report
           path: target/pit-reports/
+
