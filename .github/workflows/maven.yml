@@ -32,13 +32,19 @@ jobs:
         run: |
           mvn -B verify --file pom.xml | tee full_test_output.log
 
-          # --- JQWIK DINAMIK ÖZET ---
+          # --- JQWIK DINAMIK ÖZET  ---
           echo "### 🧪 Property-Based Verification (jqwik)" >> $GITHUB_STEP_SUMMARY
-          JQ_CHECKS=$(grep -oP 'checks = \K\d+' full_test_output.log | head -1 || echo "1000")
-          echo "| Metric | Scenarios | Status |" >> $GITHUB_STEP_SUMMARY
+          
+          # Log dosyasından 'checks' sayılarını sırayla çekiyoruz
+          CHECK1=$(grep -oP 'checks = \K\d+' full_test_output.log | sed -n '1p')
+          CHECK2=$(grep -oP 'checks = \K\d+' full_test_output.log | sed -n '2p')
+          CHECK3=$(grep -oP 'checks = \K\d+' full_test_output.log | sed -n '3p')
+
+          echo "| Property | Tries / Checks | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Pricing Invariants** | $JQ_CHECKS / 1000 | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Discount Hierarchy** | $JQ_CHECKS / 1000 | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Price Invariant (Non-negative)** | $CHECK1 / 1000 | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Surge Pricing Logic** | $CHECK2 / 1000 | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Discount Hierarchy** | $CHECK3 / 1000 | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
 
           # --- ACTS DINAMIK ÖZET ---
           echo "### 🧩 Combinatorial Testing (ACTS)" >> $GITHUB_STEP_SUMMARY
