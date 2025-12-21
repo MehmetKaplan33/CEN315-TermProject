@@ -16,7 +16,8 @@ jobs:
 
     steps:
       # 1. KODU ÇEK
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
       # 2. JAVA 21 KUR
       - name: Set up JDK 21
@@ -40,7 +41,7 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary - XML'den direkt parse
+      # JaCoCo Summary - Python ile XML parse
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
@@ -49,34 +50,36 @@ jobs:
           JACOCO_XML="target/site/jacoco/jacoco.xml"
           
           if [ -f "$JACOCO_XML" ]; then
-            # XML'den instruction coverage
-            INST_COVERED=$(xmllint --xpath "string(//counter[@type='INSTRUCTION']/@covered)" "$JACOCO_XML" 2>/dev/null || echo "0")
-            INST_MISSED=$(xmllint --xpath "string(//counter[@type='INSTRUCTION']/@missed)" "$JACOCO_XML" 2>/dev/null || echo "0")
-            INST_TOTAL=$((INST_COVERED + INST_MISSED))
-          
-            if [ "$INST_TOTAL" -gt 0 ]; then
-              INST_PCT=$(awk "BEGIN {printf \"%.0f\", ($INST_COVERED/$INST_TOTAL)*100}")
-            else
-              INST_PCT="N/A"
-            fi
-          
-            # XML'den branch coverage
-            BRANCH_COVERED=$(xmllint --xpath "string(//counter[@type='BRANCH']/@covered)" "$JACOCO_XML" 2>/dev/null || echo "0")
-            BRANCH_MISSED=$(xmllint --xpath "string(//counter[@type='BRANCH']/@missed)" "$JACOCO_XML" 2>/dev/null || echo "0")
-            BRANCH_TOTAL=$((BRANCH_COVERED + BRANCH_MISSED))
-          
-            if [ "$BRANCH_TOTAL" -gt 0 ]; then
-              BRANCH_PCT=$(awk "BEGIN {printf \"%.0f\", ($BRANCH_COVERED/$BRANCH_TOTAL)*100}")
-            else
-              BRANCH_PCT="N/A"
-            fi
-          
-            # Tablo
-            echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
-            echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Instruction Coverage** | ${INST_PCT}% | $([ "$INST_PCT" != "N/A" ] && [ $INST_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "| **Branch Coverage** | ${BRANCH_PCT}% | $([ "$BRANCH_PCT" != "N/A" ] && [ $BRANCH_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
+            python3 << 'PYEOF' >> $GITHUB_STEP_SUMMARY
+          import xml.etree.ElementTree as ET
+          import sys
+
+          try:
+              tree = ET.parse('target/site/jacoco/jacoco.xml')
+              root = tree.getroot()
+
+              # Find INSTRUCTION counter
+              inst_counter = root.find(".//counter[@type='INSTRUCTION']")
+              inst_covered = int(inst_counter.get('covered', 0)) if inst_counter is not None else 0
+              inst_missed = int(inst_counter.get('missed', 0)) if inst_counter is not None else 0
+              inst_total = inst_covered + inst_missed
+              inst_pct = int((inst_covered / inst_total) * 100) if inst_total > 0 else 0
+
+              # Find BRANCH counter
+              branch_counter = root.find(".//counter[@type='BRANCH']")
+              branch_covered = int(branch_counter.get('covered', 0)) if branch_counter is not None else 0
+              branch_missed = int(branch_counter.get('missed', 0)) if branch_counter is not None else 0
+              branch_total = branch_covered + branch_missed
+              branch_pct = int((branch_covered / branch_total) * 100) if branch_total > 0 else 0
+
+              print("| Metric | Coverage | Status |")
+              print("| :--- | :--- | :--- |")
+              print(f"| **Instruction Coverage** | {inst_pct}% | {'✅' if inst_pct >= 80 else '⚠️'} |")
+              print(f"| **Branch Coverage** | {branch_pct}% | {'✅' if branch_pct >= 80 else '⚠️'} |")
+              print("")
+          except Exception as e:
+              print(f"Error parsing XML: {e}")
+          PYEOF
           else
             echo "⚠️ JaCoCo raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
           fi
@@ -89,21 +92,20 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST - Terminal çıktısından direkt parse
+      # 5. PITEST - Terminal çıktısından parse
       - name: Run PITest and Extract Summary
         run: |
-          # PITest çalıştır ve çıktıyı yakala
           mvn org.pitest:pitest-maven:mutationCoverage | tee pitest_output.log
           
           echo "### 🧬 Mutation Testing Summary (PITest)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          # Terminal çıktısından parse et
-          LINE_COV=$(grep -oP 'Line Coverage \(for mutated classes only\): \d+/\d+ \(\K\d+' pitest_output.log || echo "0")
-          LINE_RATIO=$(grep -oP 'Line Coverage \(for mutated classes only\): \K\d+/\d+' pitest_output.log || echo "0/0")
+          LINE_COV=$(grep 'Line Coverage (for mutated classes only):' pitest_output.log | grep -oP '\(\K\d+(?=%\))' || echo "0")
+          LINE_RATIO=$(grep 'Line Coverage (for mutated classes only):' pitest_output.log | grep -oP '\d+/\d+' || echo "0/0")
           
-          MUT_KILLED=$(grep -oP 'Generated \d+ mutations Killed \K\d+' pitest_output.log || echo "0")
-          MUT_TOTAL=$(grep -oP 'Generated \K\d+' pitest_output.log || echo "0")
+          MUT_LINE=$(grep '>> Generated .* mutations Killed' pitest_output.log | tail -n 1)
+          MUT_TOTAL=$(echo "$MUT_LINE" | grep -oP 'Generated \K\d+' || echo "0")
+          MUT_KILLED=$(echo "$MUT_LINE" | grep -oP 'Killed \K\d+' || echo "0")
           
           if [ "$MUT_TOTAL" -gt 0 ]; then
             MUT_COV=$(awk "BEGIN {printf \"%.0f\", ($MUT_KILLED/$MUT_TOTAL)*100}")
@@ -113,14 +115,13 @@ jobs:
             MUT_RATIO="0/0"
           fi
           
-          TEST_STR=$(grep -oP 'Test strength \K\d+' pitest_output.log || echo "0")
+          TEST_STR=$(grep 'Test strength' pitest_output.log | grep -oP 'Test strength \K\d+' || echo "0")
           
-          # Tablo
           echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Line Coverage** | ${LINE_COV}% (${LINE_RATIO}) | $([ $LINE_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Mutation Coverage** | ${MUT_COV}% (${MUT_RATIO}) | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Test Strength** | ${TEST_STR}% | $([ $TEST_STR -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Line Coverage** | ${LINE_COV}% (${LINE_RATIO}) | $([ "$LINE_COV" -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Mutation Coverage** | ${MUT_COV}% (${MUT_RATIO}) | $([ "$MUT_COV" -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Test Strength** | ${TEST_STR}% | $([ "$TEST_STR" -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
       # 6. PITEST RAPORUNU YÜKLE
