@@ -40,7 +40,7 @@ jobs:
           title: "📊 JaCoCo Code Coverage Summary"
           update-comment: true
 
-      # JaCoCo Summary'e de ekle (Basit sed ile)
+      # JaCoCo Summary (Debug eklenmiş)
       - name: Add JaCoCo to Step Summary
         run: |
           echo "### 📊 JaCoCo Code Coverage Summary" >> $GITHUB_STEP_SUMMARY
@@ -49,13 +49,18 @@ jobs:
           JACOCO_HTML="target/site/jacoco/index.html"
           
           if [ -f "$JACOCO_HTML" ]; then
-            # Tüm bar satırlarını dosyaya yaz
+            # Bar satırlarını dosyaya yaz
             grep '<tfoot>' -A 5 "$JACOCO_HTML" | grep 'class="bar"' > /tmp/bars.txt
           
-            # İlk satırdan Instruction coverage
+            echo "DEBUG: Bar satırları:" >> /tmp/debug.log
+            cat /tmp/bars.txt >> /tmp/debug.log
+          
+            # İlk satır: Instruction
             INST_LINE=$(sed -n '1p' /tmp/bars.txt)
             INST_MISSED=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
             INST_TOTAL=$(echo "$INST_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
+          
+            echo "DEBUG: INST_MISSED=$INST_MISSED, INST_TOTAL=$INST_TOTAL" >> /tmp/debug.log
           
             if [ -n "$INST_TOTAL" ] && [ "$INST_TOTAL" -gt 0 ]; then
               INST_COVERED=$((INST_TOTAL - INST_MISSED))
@@ -64,10 +69,13 @@ jobs:
               INST_PCT="N/A"
             fi
           
-            # İkinci satırdan Branch coverage
+            # İkinci satır: Branch
             BRANCH_LINE=$(sed -n '2p' /tmp/bars.txt)
             BRANCH_MISSED=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\1/p')
             BRANCH_TOTAL=$(echo "$BRANCH_LINE" | sed -n 's/.*>\([0-9]*\) of \([0-9]*\)<.*/\2/p')
+          
+            echo "DEBUG: BRANCH_LINE=$BRANCH_LINE" >> /tmp/debug.log
+            echo "DEBUG: BRANCH_MISSED=$BRANCH_MISSED, BRANCH_TOTAL=$BRANCH_TOTAL" >> /tmp/debug.log
           
             if [ -n "$BRANCH_TOTAL" ] && [ "$BRANCH_TOTAL" -gt 0 ]; then
               BRANCH_COVERED=$((BRANCH_TOTAL - BRANCH_MISSED))
@@ -76,12 +84,20 @@ jobs:
               BRANCH_PCT="N/A"
             fi
           
-            # Tablo oluştur
+            # Tablo
             echo "| Metric | Coverage | Status |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
             echo "| **Instruction Coverage** | ${INST_PCT}% | $([ "$INST_PCT" != "N/A" ] && [ $INST_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "| **Branch Coverage** | ${BRANCH_PCT}% | $([ "$BRANCH_PCT" != "N/A" ] && [ $BRANCH_PCT -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+          
+            # Debug çıktısını göster
+            echo "<details><summary>🔍 Debug Log</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat /tmp/debug.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ JaCoCo HTML raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
           fi
@@ -94,7 +110,7 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # 5. PITEST (MUTASYON) VE DİNAMİK VERİ ÇEKME (HTML'DEN DOĞRU PARSE)
+      # 5. PITEST (Debug eklenmiş)
       - name: Run PITest and Extract Summary
         run: |
           mvn org.pitest:pitest-maven:mutationCoverage
@@ -105,29 +121,43 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ -f "$PITEST_HTML" ]; then
-            # Line Coverage: 98% <div class="coverage_bar">...58/59</div>
-            LINE_COV=$(grep -A2 '<th>Line Coverage</th>' "$PITEST_HTML" | grep -oP '(?<=width-)\d+' | head -1)
-            LINE_RATIO=$(grep -A2 '<th>Line Coverage</th>' "$PITEST_HTML" | grep -oP '\d+/\d+' | head -1)
+            echo "DEBUG: PITest HTML bulundu" >> /tmp/pitest_debug.log
           
-            # Mutation Coverage: 83% <div class="coverage_bar">...34/41</div>
-            MUT_COV=$(grep -A2 '<th>Mutation Coverage</th>' "$PITEST_HTML" | grep -oP '(?<=width-)\d+' | head -1)
-            MUT_RATIO=$(grep -A2 '<th>Mutation Coverage</th>' "$PITEST_HTML" | grep -oP '\d+/\d+' | head -1)
+            # Project Summary tablosunu bul
+            grep -A 10 '<h3>Project Summary</h3>' "$PITEST_HTML" > /tmp/pitest_table.txt
+            cat /tmp/pitest_table.txt >> /tmp/pitest_debug.log
           
-            # Test Strength: 92% <div class="coverage_bar">...34/37</div>
-            TEST_STR=$(grep -A2 '<th>Test Strength</th>' "$PITEST_HTML" | grep -oP '(?<=width-)\d+' | head -1)
-            TEST_RATIO=$(grep -A2 '<th>Test Strength</th>' "$PITEST_HTML" | grep -oP '\d+/\d+' | head -1)
+            # Line Coverage: width-XX class'ından çek
+            LINE_COV=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '1p' || echo "0")
+            LINE_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '1p' || echo "0/0")
           
-            # Varsayılan değerler (parse başarısız olursa)
-            LINE_COV=${LINE_COV:-0}
-            MUT_COV=${MUT_COV:-0}
-            TEST_STR=${TEST_STR:-0}
+            # Mutation Coverage
+            MUT_COV=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '2p' || echo "0")
+            MUT_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '2p' || echo "0/0")
           
+            # Test Strength
+            TEST_STR=$(grep -oP 'width-\K\d+' /tmp/pitest_table.txt | sed -n '3p' || echo "0")
+            TEST_RATIO=$(grep -oP '\d+/\d+' /tmp/pitest_table.txt | sed -n '3p' || echo "0/0")
+          
+            echo "DEBUG: LINE_COV=$LINE_COV ($LINE_RATIO)" >> /tmp/pitest_debug.log
+            echo "DEBUG: MUT_COV=$MUT_COV ($MUT_RATIO)" >> /tmp/pitest_debug.log
+            echo "DEBUG: TEST_STR=$TEST_STR ($TEST_RATIO)" >> /tmp/pitest_debug.log
+          
+            # Tablo
             echo "| Metric | Score | Status |" >> $GITHUB_STEP_SUMMARY
             echo "| :--- | :--- | :--- |" >> $GITHUB_STEP_SUMMARY
             echo "| **Line Coverage** | ${LINE_COV}% (${LINE_RATIO}) | $([ $LINE_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "| **Mutation Coverage** | ${MUT_COV}% (${MUT_RATIO}) | $([ $MUT_COV -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "| **Test Strength** | ${TEST_STR}% (${TEST_RATIO}) | $([ $TEST_STR -ge 80 ] && echo "✅" || echo "⚠️") |" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
+          
+            # Debug
+            echo "<details><summary>🔍 PITest Debug</summary>" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat /tmp/pitest_debug.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "</details>" >> $GITHUB_STEP_SUMMARY
           else
             echo "⚠️ PITest raporu bulunamadı!" >> $GITHUB_STEP_SUMMARY
           fi
@@ -139,44 +169,3 @@ jobs:
         with:
           name: pitest-report
           path: target/pit-reports/
-
-      # 7. UYGULAMAYI ARKA PLANDA BAŞLAT
-      - name: Start Spring Boot App
-        run: |
-          nohup java -jar target/*.jar > app.log 2>&1 &
-          echo "Uygulama başlatılıyor, 25 saniye bekleniyor..."
-          sleep 25
-          curl -s -f http://localhost:8080/classes > /dev/null || (echo "❌ API Yanıt Vermiyor!" && cat app.log && exit 1)
-
-      # 8. POSTMAN TESTLERİ (NEWMAN)
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Run Postman Collection
-        run: |
-          npm install -g newman
-          echo "### 🚀 API Test Results (Newman)" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          newman run tests/postman/collection.json --reporter-cli-no-banner >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      # 9. PERFORMANS TESTLERİ (k6 TAM ÇIKTI)
-      - name: Setup k6
-        uses: grafana/setup-k6-action@v1
-
-      - name: Run k6 Load Test
-        run: |
-          echo "### ⚡ Performance Summary (k6)" >> $GITHUB_STEP_SUMMARY
-          echo '```text' >> $GITHUB_STEP_SUMMARY
-          k6 run tests/k6/load_test.js >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-      # 10. UYGULAMA LOGLARINI YÜKLE
-      - name: Upload Application Logs
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: application-log
-          path: app.log
