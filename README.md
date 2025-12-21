@@ -24,10 +24,27 @@
   - Tier-based discounts (Premium/Student memberships)
   - Real-time price calculation based on demand
 
-* **Design by Contract**
+* **Design by Contract (Formal Verification)**
   - Enforces system invariants using Spring Assertions
   - Formal `validateState()` methods for business logic integrity
   - Defensive programming with comprehensive validation
+  
+  **Example Invariants:**
+  ```java
+  // Precondition: capacity > 0 && occupancy >= 0
+  // Postcondition: calculatedPrice >= basePrice
+  // Invariant: occupancy <= capacity
+  
+  public void createReservation(Member member, GymClass gymClass) {
+      assert member != null && gymClass != null;
+      assert gymClass.getAvailableCapacity() > 0;
+      
+      // Business logic...
+      
+      assert reservation.getPrice() >= gymClass.getBasePrice();
+      validateState(); // Verify all invariants hold
+  }
+  ```
 
 * **Enterprise-Grade Quality Assurance**
   - Mutation Testing (PITest)
@@ -202,6 +219,65 @@ Run security vulnerability scanning with OWASP ZAP:
 # Results available at: docs/security_report.html
 ```
 
+### 🔥 Chaos Engineering & Resilience Testing
+
+Test the system's resilience against infrastructure failures:
+
+#### Database Failure Simulation
+
+```bash
+# 1. Start the system with Docker
+docker-compose up -d
+
+# 2. Simulate database crash
+docker stop gym-postgres
+
+# 3. Make API requests - observe graceful degradation
+curl http://localhost:8080/api/members
+```
+
+**Expected Behavior:**
+- ✅ Returns `503 Service Unavailable` instead of `500 Internal Server Error`
+- ✅ No stack traces exposed to clients (security improvement)
+- ✅ User-friendly JSON error message
+- ✅ System remains stable (no cascading failures)
+
+**Implementation Details:**
+- Global `@ControllerAdvice` catches `DataAccessException`
+- Converts JDBC exceptions → HTTP 503 responses
+- Prevents information disclosure vulnerabilities
+
+**Verification:**
+
+```bash
+# ❌ Response before mitigation:
+HTTP 500 Internal Server Error
+{
+  "error": "org.springframework.jdbc.CannotGetJdbcConnectionException: ..."
+  // Stack trace visible to client
+}
+
+# ✅ Response after mitigation:
+HTTP 503 Service Unavailable
+{
+  "error": "Service temporarily unavailable",
+  "message": "Database connection failed. Please try again later."
+}
+```
+
+**Resilience Patterns Implemented:**
+- 🛡️ **Graceful Degradation** - System fails safely without crashing
+- 🔒 **Information Hiding** - No internal details leaked to clients
+- 📊 **Proper HTTP Status Codes** - 503 indicates temporary unavailability
+- 🔄 **Fail-Fast Behavior** - Quick error responses instead of timeouts
+
+**Restore Database:**
+```bash
+docker-compose start gym-postgres
+```
+
+For detailed chaos engineering analysis and results, see `docs/Project_Report.pdf` Section 5.13.
+
 ### 📋 Run All Tests at Once
 
 ```bash
@@ -241,7 +317,8 @@ Every build generates a summary including:
 
 ## 📂 Documentation Structure
 
-* `docs/Test Strategy Plan.pdf` - Comprehensive test planning and strategy document
+* `docs/Test_Strategy_Plan.pdf` - Comprehensive test planning and strategy document
+* `docs/Project_Report.pdf` - Final project report with analysis and conclusions
 * `docs/security_report.html` - OWASP ZAP security analysis report
 * `tests/postman/` - Newman/Postman API test collections
 * `tests/k6/` - Performance and load testing scripts
@@ -260,6 +337,7 @@ Every build generates a summary including:
 | **API Assertions** | 100% pass | ✅ **100%** | Newman |
 | **Performance (p95)** | <2000ms | ✅ **6.47ms** | k6 |
 | **Security** | OWASP verified | ✅ **Validated** | ZAP |
+| **Chaos Resilience** | Graceful degradation | ✅ **503 Response** | Docker |
 
 ---
 
