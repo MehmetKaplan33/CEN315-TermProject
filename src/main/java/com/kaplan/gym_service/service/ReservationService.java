@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class ReservationService {
@@ -32,12 +33,22 @@ public class ReservationService {
 
     @Transactional
     public Reservation createReservation(CreateReservationRequest request) {
-        // 1. Üyeyi ve Dersi Veritabanından Bul
+        // 1. Üyeyi ve Dersi Bul
         Member member = memberRepository.findById(request.getMemberId())
                 .orElseThrow(() -> new RuntimeException("Member not found"));
 
         ClassSession session = classSessionRepository.findById(request.getClassId())
                 .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        boolean alreadyExists = reservationRepository.existsByMemberIdAndClassSessionIdAndStatus(
+                request.getMemberId(),
+                request.getClassId(),
+                Reservation.ReservationStatus.CONFIRMED
+        );
+
+        if (alreadyExists) {
+            throw new RuntimeException("User is already registered for this class!");
+        }
 
         // 2. KAPASİTE KONTROLÜ
         if (session.getOccupiedSlots() >= session.getCapacity()) {
@@ -64,8 +75,11 @@ public class ReservationService {
         return reservationRepository.save(reservation);
     }
 
-    public void cancelReservation(Long id) {
+    public List<Reservation> getAllReservations() {
+        return reservationRepository.findAll();
+    }
 
+    public void cancelReservation(Long id) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Reservation not found"));
 

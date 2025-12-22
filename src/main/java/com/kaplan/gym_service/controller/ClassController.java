@@ -24,4 +24,9 @@ public class ClassController {
     public List<ClassSession> getAllClasses() {
         return classSessionService.getAllClassSessions();
     }
+
+    @DeleteMapping("/{id}")
+    public void deleteClass(@PathVariable Long id) {
+        classSessionService.deleteClassSession(id);
+    }
 }

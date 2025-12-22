@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
+    boolean existsByMemberIdAndClassSessionIdAndStatus(Long memberId, Long classSessionId, Reservation.ReservationStatus status);
 }

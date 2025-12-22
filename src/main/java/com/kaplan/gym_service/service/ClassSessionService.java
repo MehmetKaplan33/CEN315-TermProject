@@ -23,4 +23,15 @@ public class ClassSessionService {
     public List<ClassSession> getAllClassSessions() {
         return classSessionRepository.findAll();
     }
+
+    public void deleteClassSession(Long id) {
+        ClassSession session = classSessionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Class not found"));
+
+        if (session.getOccupiedSlots() > 0) {
+            throw new RuntimeException("Cannot delete class! It has active reservations. Please cancel them first.");
+        }
+
+        classSessionRepository.deleteById(id);
+    }
 }

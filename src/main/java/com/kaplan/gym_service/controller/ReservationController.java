@@ -20,6 +20,11 @@ public class ReservationController {
         return reservationService.createReservation(request);
     }
 
+    @GetMapping
+    public java.util.List<Reservation> getAllReservations() {
+        return reservationService.getAllReservations();
+    }
+
     @DeleteMapping("/{id}")
     public void cancelReservation(@PathVariable Long id) {
         reservationService.cancelReservation(id);
