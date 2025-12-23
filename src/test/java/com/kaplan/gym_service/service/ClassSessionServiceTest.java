@@ -49,4 +49,21 @@ class ClassSessionServiceTest {
         // THEN
         verify(classSessionRepository).findAll();
     }
+
+    @Test
+    void shouldDeleteClass() {
+        // GIVEN
+        Long classId = 1L;
+        ClassSession session = new ClassSession();
+        session.setId(classId);
+
+
+        when(classSessionRepository.findById(classId)).thenReturn(java.util.Optional.of(session));
+
+        // WHEN
+        classSessionService.deleteClassSession(classId);
+
+        // THEN
+        verify(classSessionRepository).deleteById(classId);
+    }
 }

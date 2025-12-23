@@ -12,8 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ReservationController.class)
@@ -32,6 +31,17 @@ class ReservationControllerTest {
         mockMvc.perform(post("/reservations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"memberId\": 1, \"classId\": 1}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void shouldReturnAllReservations() throws Exception {
+        // GIVEN
+        given(reservationService.getAllReservations()).willReturn(java.util.Collections.emptyList());
+
+        // WHEN & THEN
+        mockMvc.perform(get("/reservations")
+                        .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
     }
 
