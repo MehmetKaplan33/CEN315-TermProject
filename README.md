@@ -8,6 +8,14 @@
 
 > A high-reliability RESTful API developed for **CEN315 Introduction to Test Engineering** course, implementing a complete test engineering lifecycle from TDD to advanced quality assurance practices.
 
+### 🎥 Project Presentation & Demo
+
+[![Watch Video](https://img.shields.io/badge/Watch-Project_Presentation-red?style=for-the-badge&logo=youtube&logoColor=white)](https://drive.google.com/drive/folders/109-PumCPsOUBeitxflhs6sDdxldfnq5a?usp=sharing)
+
+> **Click the badge above to watch the full system demonstration and presentation video.**
+
+---
+
 ## 📖 Project Overview
 
 **Gym Service** is a comprehensive fitness center management system that handles:
