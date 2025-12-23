@@ -23,7 +23,7 @@ services:
     container_name: gym-backend
     build: .
     ports:
-      - "8080:8080"
+      - "8091:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${DB_NAME:-gymdb}
