@@ -125,6 +125,7 @@
 								<exclude>com/kaplan/gym_service/dto/**/*</exclude>
 								<exclude>com/kaplan/gym_service/exception/**/*</exclude>
 								<exclude>com/kaplan/gym_service/controller/**/*</exclude>
+								<exclude>com/kaplan/gym_service/config/**/*</exclude>
 							</excludes>
 						</configuration>
 					</execution>
@@ -155,6 +156,7 @@
 						<param>com.kaplan.gym_service.model.*</param>
 						<param>com.kaplan.gym_service.dto.*</param>
 						<param>com.kaplan.gym_service.exception.*</param>
+						<param>com.kaplan.gym_service.config.*</param>
 						<param>com.kaplan.gym_service.GymServiceApplication</param>
 					</excludedClasses>
 					<outputFormats>
